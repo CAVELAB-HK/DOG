@@ -18,18 +18,20 @@ class Controller:
         self.data.qpos[2] = 0.3
         # Standing position
         stand_angles = np.array([
+            # one leg (hip_abduct, hip_flex, knee_flex)
             0.0, 0.7, -1.4, # FR
             0.0, 0.7, -1.4, # FL
             0.0, 0.7, -1.4, # RR
             0.0, 0.7, -1.4  # RL
         ])
         self.data.qpos[7:19] = stand_angles
+        self.target_pos = stand_angles
 
     def compute_torques(self): 
         # PD control to reach target positions
         # u(t) = Kp * e(t) + Kd * e'(t)
         pos_error = self.target_pos - self.data.qpos[7:19]
-        vel_error = self.data.qvel[6:18]
+        vel_error = -self.data.qvel[6:18]
         # 12 leg joint angles start at index 7 in qpos and their velocities start at index 6 in qvel
         torques = self.kp * pos_error + self.kd * vel_error
         return torques
