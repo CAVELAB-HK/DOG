@@ -5,18 +5,51 @@ import time
 
 # mjpython /Users/zoe/CAVELAB/DOG/basics.py to run this script
 
-model = mujoco.MjModel.from_xml_path("/Users/zoe/CAVELAB/DOG/mujoco_menagerie/unitree_go1/scene.xml")
-data = mujoco.MjData(model)
+class Controller: 
+    def __init__(self, path):
+        self.model = mujoco.MjModel.from_xml_path(path)
+        self.data = mujoco.MjData(self.model)
+        self.target_pos = np.zeros(12)
+        self.kp = 10.0
+        self.kd = 1.0 
 
-with viewer.launch_passive(model, data) as v:
-    while v.is_running():
-        data.ctrl[:] = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-        # Apply control and step the simulation 
-        accel = data.sensordata[0:3]
-        gyro = data.sensordata[3:6]
-        print("accel:", accel, "gyro:", gyro)
-        mujoco.mj_step(model, data)
-        time.sleep(0.01)
-        v.sync()
+    def reset(self): 
+        mujoco.mj_resetData(self.model, self.data)
+        self.data.qpos[2] = 0.3
+        # Standing position
+        stand_angles = np.array([
+            0.0, 0.7, -1.4, # FR
+            0.0, 0.7, -1.4, # FL
+            0.0, 0.7, -1.4, # RR
+            0.0, 0.7, -1.4  # RL
+        ])
+        self.data.qpos[7:19] = stand_angles
+
+    def compute_torques(self): 
+        # PD control to reach target positions
+        # u(t) = Kp * e(t) + Kd * e'(t)
+        pos_error = self.target_pos - self.data.qpos[7:19]
+        vel_error = self.data.qvel[6:18]
+        # 12 leg joint angles start at index 7 in qpos and their velocities start at index 6 in qvel
+        torques = self.kp * pos_error + self.kd * vel_error
+        return torques
+    
+    def step(self): 
+        self.data.ctrl[:] = self.compute_torques()
+        mujoco.mj_step(self.model, self.data)
+
+    def run_interactive(self): 
+        self.reset()
+        with viewer.launch_passive(self.model, self.data) as sim:
+            while sim.is_running(): 
+                self.step()
+                time.sleep(0.01)
+                sim.sync()
+
+controller = Controller("/Users/zoe/CAVELAB/DOG/mujoco_menagerie/unitree_go1/scene.xml")
+controller.run_interactive()
+
+
+
 
 
