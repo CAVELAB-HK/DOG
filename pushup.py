@@ -27,6 +27,24 @@ class Controller:
         self.data.qpos[7:19] = stand_angles
         self.target_pos = stand_angles
 
+    def kneel(self): 
+        kneel_angles = np.array([
+            0.0, 2, -4, 
+            0.0, 2, -4,
+            0.0, 2, -4, 
+            0.0, 2, -4 
+        ])
+        self.target_pos = kneel_angles
+
+    def stand(self):
+        stand_angles = np.array([
+            0.0, 0.7, -1.4,
+            0.0, 0.7, -1.4, 
+            0.0, 0.7, -1.4, 
+            0.0, 0.7, -1.4  
+        ])
+        self.target_pos = stand_angles
+
     def compute_torques(self): 
         # PD control to reach target positions
         # u(t) = Kp * e(t) + Kd * e'(t)
@@ -42,8 +60,15 @@ class Controller:
 
     def run_interactive(self): 
         self.reset()
+        step_count = 0
         with viewer.launch_passive(self.model, self.data) as sim:
             while sim.is_running(): 
+                step_count += 1
+                if step_count == 200:
+                    self.kneel()
+                if step_count == 400:
+                    self.stand()
+                    step_count = 0
                 self.step()
                 time.sleep(0.01)
                 sim.sync()
