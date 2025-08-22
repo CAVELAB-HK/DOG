@@ -2,16 +2,14 @@ import mujoco
 from mujoco import viewer
 import numpy as np
 
-# ...existing code...
+model = mujoco.MjModel.from_xml_path("/Users/zoe/CAVELAB/DOG/mujoco_menagerie/unitree_go1/scene.xml")
+data = mujoco.MjData(model)
 
-# Add a simple control loop example
 def simple_stand_controller():
     """
     Simple PD controller to make the robot stand
     This is what you'll replace with RL!
     """
-    model = mujoco.MjModel.from_xml_path("/Users/zoe/CAVELAB/DOG/mujoco_menagerie/unitree_go1/scene.xml")
-    data = mujoco.MjData(model)
     
     # Reset and set initial height
     mujoco.mj_resetData(model, data)
@@ -45,8 +43,4 @@ def simple_stand_controller():
             v.sync()
 
 if __name__ == "__main__":
-    # Uncomment to run simple controller
-    # simple_stand_controller()
-    
-    # Original viewer launch
     viewer.launch(model, data)
