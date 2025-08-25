@@ -15,21 +15,54 @@ class Controller:
         self.l_thigh = 0.213  
         self.l_calf = 0.213 
         self.l_hip = -0.05
-        self.time = 0
+        self.time = 0.0
+
+        self.gait_frequency = 5.0 # Hz (2 steps per second)
+        self.duty_factor = 0.5 # Proportion of gait cycle each foot is on the ground
     
-    def trajectory_generator(self, t): 
+    def trajectory_generator(self, phase): 
         r = 0.05
-        x = -r * np.cos(t) 
+
+        if phase < self.duty_factor: 
+            # Stance phase: foot moves backward (from front to back)
+            # This pushes the body forward
+            t = np.pi * (1 - phase / self.duty_factor)  # Goes from pi to 0
+            # Means x goes from -r to r (backward motion)
+        else: 
+            # Swing phase: foot moves forward (from back to front) 
+            # Preparing for next step
+            t = 2 * np.pi * (phase - self.duty_factor) / (1 - self.duty_factor)  # Goes from 0 to 2pi
+            # Means x goes r→-r (forward motion through air)
+
+        x = r * np.cos(t) 
         y = 0
-        z = -0.35 + r * np.sin(t) 
+        # During stance (t: pi->0), z should stay low
+        # During swing (t: 0->2pi), z should lift up
+        if phase < self.duty_factor:
+            z = -0.35  # Keep foot on ground during stance
+        else:
+            z = -0.35 + r * (1 - np.cos(2 * np.pi * (phase - self.duty_factor) / (1 - self.duty_factor)))
+            # Foot lifts up: z = -0.35 + r * (1 - np.cos(...))
+            # The cosine creates a smooth arc for foot lifting
+
+        '''
+        Phase 0.0: Foot at front (-r, 0, -0.35) - START STANCE
+        Phase 0.25: Foot at middle (0, 0, -0.35) - MID STANCE  
+        Phase 0.5: Foot at back (r, 0, -0.35) - END STANCE/START SWING
+        Phase 0.75: Foot lifted (0, 0, -0.30) - MID SWING
+        Phase 1.0: Foot returns to front (-r, 0, -0.35) - END SWING 
+        '''
+
         target = np.array([x, y, z])
         return target
     
     def compute_leg_ik(self, base_target):
-        FR_target = self.trajectory_generator(self.time)       
-        FL_target = self.trajectory_generator(self.time + np.pi) 
-        BR_target = self.trajectory_generator(self.time + np.pi)    
-        BL_target = self.trajectory_generator(self.time) 
+        phase = (self.time * self.gait_frequency) % 1.0
+
+        FR_target = self.trajectory_generator(phase)       
+        FL_target = self.trajectory_generator((phase + 0.5) % 1.0) 
+        BR_target = self.trajectory_generator((phase + 0.5) % 1.0)    
+        BL_target = self.trajectory_generator(phase) 
 
         l1, l2 = self.l_thigh, self.l_calf
         
@@ -91,7 +124,7 @@ class Controller:
                 mujoco.mj_step(self.model, self.data)
                 sim.sync()
                 time.sleep(0.01)
-                self.time += 0.05  
+                self.time += 0.01 
 
 
 controller = Controller("/Users/zoe/CAVELAB/DOG/mujoco_menagerie/unitree_go1/scene.xml")
